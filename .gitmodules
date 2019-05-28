@@ -1,0 +1,6 @@
+[submodule "Externals/alure"]
+	path = Externals/alure
+	url = https://github.com/kcat/alure/
+[submodule "Externals/soxr-code"]
+	path = Externals/soxr-code
+	url = https://git.code.sf.net/p/soxr/code
