@@ -5,148 +5,119 @@
 #include <cmath>
 #include <chrono>
 #include <unordered_map>
+#include <variant>
 
 #include <alure2.h>
 #include <phonon.h>
 #include "Externals/soxr-code/src/soxr.h"
 
+#include "Context.hpp"
+#include "BinauralRenderer.hpp"
+#include "SteamAudioDecoder.hpp"
+#include "Helpers.hpp"
+#include "Structs.hpp"
+
 std::unordered_map<alure::String, alure::Vector<float>> audioCache;
-
-std::vector<float> load_input_audio(const std::string filename)
-{
-  std::ifstream file(filename.c_str(), std::ios::binary);
-
-  file.seekg(0, std::ios::end);
-  auto filesize = file.tellg();
-  auto numsamples = static_cast<int>(filesize / sizeof(float));
-
-  std::vector<float> inputaudio(numsamples);
-  file.seekg(0, std::ios::beg);
-  file.read(reinterpret_cast<char*>(inputaudio.data()), filesize);
-
-  return inputaudio;
-}
-
-void save_output_audio(const std::string filename, std::vector<float> outputaudio)
-{
-  std::ofstream file(filename.c_str(), std::ios::binary);
-  file.write(reinterpret_cast<char*>(outputaudio.data()), outputaudio.size() * sizeof(float));
-}
-
-IPLVector3 rotate_clockwise_over_zero(double radius, std::chrono::milliseconds run_duration, double angularVelocity)
-{
-  return IPLVector3
-  {
-    (IPLfloat32)(std::sin(run_duration.count() * angularVelocity / 1000) * radius),
-    0,
-    (IPLfloat32)(std::cos(run_duration.count() * angularVelocity / 1000) * radius)
-  };
-}
-
-IPLVector3 rotate_clockwise_over_zero(double radius, uint64_t run_duration, double angularVelocity)
-{
-  return IPLVector3
-  {
-    (IPLfloat32)(std::sin(run_duration * angularVelocity / 1000) * radius),
-    0,
-    (IPLfloat32)(std::cos(run_duration * angularVelocity / 1000) * radius)
-  };
-}
-
 constexpr int selectedRate = 48000;
 constexpr int selectedFramesize = 512;
+constexpr int selectedNumBuffersPerSource = 3;
+
+std::shared_ptr<AudioBuffer> get_resampled_audio(std::string filename, alure::Context& al_context)
+{
+  std::vector<float> resampledAudio;
+
+  auto dec = al_context.createDecoder(filename);
+  std::vector<ALbyte> audioData(alure::FramesToBytes(dec->getLength(), dec->getChannelConfig(), dec->getSampleType()));
+  dec->read(audioData.data(), dec->getLength());
+
+  auto inputSampleType = dec->getSampleType();
+  auto inputLength = dec->getLength();
+  auto inputSize = audioData.size();
+  auto inputFrequency = dec->getFrequency();
+  auto inputChannelConfig = dec->getChannelConfig();
+
+  resampledAudio.resize(inputSize / get_sample_size(inputSampleType) * selectedRate / inputFrequency + 1);
+
+  auto runtimeSpec = soxr_runtime_spec(0);
+  auto audioSpec = soxr_io_spec(get_sox_type(inputSampleType), SOXR_FLOAT32_I);
+  auto qualityResampleQuality = soxr_quality_spec(SOXR_VHQ, 0);
+  auto resampler = soxr_create(inputFrequency, selectedRate, get_channel_quantity(inputChannelConfig), nullptr, &audioSpec, &qualityResampleQuality, &runtimeSpec);
+
+  size_t idone = 0;
+  size_t odone = 0;
+  size_t block = 250000;
+  size_t j = 0;
+  for (size_t i = 0; alure::FramesToBytes(i, inputChannelConfig, inputSampleType) < audioData.size();)
+  {
+    auto num = alure::FramesToBytes(i, inputChannelConfig, inputSampleType);
+    size_t toProcess = block;
+    if (alure::FramesToBytes(toProcess + i, inputChannelConfig, inputSampleType) > audioData.size())
+    {
+      toProcess = alure::BytesToFrames(audioData.size(), inputChannelConfig, inputSampleType) - i;
+    }
+    auto numBytes = alure::FramesToBytes(i, inputChannelConfig, inputSampleType);
+    auto soxError = soxr_process(resampler, audioData.data() + alure::FramesToBytes(i, inputChannelConfig, inputSampleType),
+      toProcess, &idone,
+      resampledAudio.data() + j, resampledAudio.size() - j, &odone);
+
+    i += idone;
+    j += odone * get_channel_quantity(inputChannelConfig);
+  }
+  resampledAudio.resize(j);
+
+  soxr_delete(resampler);
+  return std::make_shared<AudioBuffer>(resampledAudio, alure::SampleType::Float32, alure::ChannelConfig::Stereo);
+}
 
 int main(int argc, char** argv)
 {
-
+  float pos_y = 1.0f;
   // Init OpenAL
   auto al_dev_manager = alure::DeviceManager::getInstance();
-  auto al_device = al_dev_manager.openPlayback();
+  auto al_device = al_dev_manager.openPlayback("OpenAL Soft");
+  //auto al_device = al_dev_manager.openPlayback();
   auto al_context = al_device.createContext();
   alure::Context::MakeCurrent(al_context);
 
   // Decode and resample single audio file
-  auto dec = al_context.createDecoder("piec.wav");
-  std::vector<int16_t> audioData(dec->getLength());
-  dec->read(audioData.data(), dec->getLength());
-
-  std::vector<float> resampledAudio(dec->getLength() * selectedRate / dec->getFrequency());
-  auto audioSpec = soxr_io_spec(SOXR_INT16_I, SOXR_FLOAT32_I);
-  auto qualityResampleQuality = soxr_quality_spec(SOXR_VHQ, 0);
-  size_t odone = 0;
-  auto soxError = soxr_oneshot(dec->getFrequency(), selectedRate, 1, audioData.data(), audioData.size(), nullptr, resampledAudio.data(), resampledAudio.size(), &odone, &audioSpec, &qualityResampleQuality, nullptr);
+  auto resampledAudio = get_resampled_audio("erro.mp3", al_context);
 
   // Add to cache
 
   // Create Alure Source
+  auto source = al_context.createSource();
 
   // Create SteamAudio decoder
-
-  // Link decoder to source
-
-  // Play source
-
-  // Move source (by moving decoder)
-
-  // Stop source
-
-  // Close source
-
-  // Close software
-  auto inputaudio = resampledAudio;
-
-  IPLhandle context{ nullptr };
-  iplCreateContext(nullptr, nullptr, nullptr, &context);
-
-  auto const samplingrate = selectedRate;
-  auto const framesize = 1024;
-  IPLRenderingSettings settings{ samplingrate, framesize };
-
-  IPLhandle renderer{ nullptr };
-  IPLHrtfParams hrtfParams{ IPL_HRTFDATABASETYPE_DEFAULT, nullptr, 0 };
-  iplCreateBinauralRenderer(context, settings, hrtfParams, &renderer);
-
-  IPLAudioFormat mono;
-  mono.channelLayoutType = IPL_CHANNELLAYOUTTYPE_SPEAKERS;
-  mono.channelLayout = IPL_CHANNELLAYOUT_MONO;
-  mono.channelOrder = IPL_CHANNELORDER_INTERLEAVED;
-
-  IPLAudioFormat stereo;
-  stereo.channelLayoutType = IPL_CHANNELLAYOUTTYPE_SPEAKERS;
-  stereo.channelLayout = IPL_CHANNELLAYOUT_STEREO;
-  stereo.channelOrder = IPL_CHANNELORDER_INTERLEAVED;
-
-  IPLhandle effect{ nullptr };
-  iplCreateBinauralEffect(renderer, mono, stereo, &effect);
-
-  std::vector<float> outputaudioframe(2 * framesize);
-  std::vector<float> outputaudio;
-
-  IPLAudioBuffer inbuffer{ mono, framesize, inputaudio.data() };
-  IPLAudioBuffer outbuffer{ stereo, framesize, outputaudioframe.data() };
-
-  auto clock = std::chrono::steady_clock();
-  auto start_time = clock.now();
-  auto numframes = static_cast<int>(inputaudio.size() / framesize);
-  uint64_t time = 0;
-  for (auto i = 0; i < numframes; ++i)
+  auto context = std::make_shared<Context>();
   {
-    auto pos = rotate_clockwise_over_zero(1, time, 2);
-    iplApplyBinauralEffect(effect, renderer, inbuffer, pos, IPL_HRTFINTERPOLATION_NEAREST, outbuffer);
-    std::copy(std::begin(outputaudioframe), std::end(outputaudioframe), std::back_inserter(outputaudio));
-    inbuffer.interleavedBuffer += framesize;
-    time += 16;
+    auto const samplingrate = selectedRate;
+    auto const framesize = selectedFramesize;
+    IPLRenderingSettings settings{ samplingrate, framesize };
+    IPLHrtfParams hrtfParams{ IPL_HRTFDATABASETYPE_DEFAULT, nullptr, 0 };
+
+    auto renderer = std::make_shared<BinauralRenderer>(context, settings, hrtfParams);
+
+    auto decoder = std::make_shared<SteamAudioDecoder>(renderer, framesize, resampledAudio);
+
+    // Link decoder to source
+    source.play(decoder, framesize, selectedNumBuffersPerSource);
+
+    auto clock = std::chrono::steady_clock();
+    auto now = clock.now();
+    while (source.isPlaying())
+    {
+      decoder->setDirection(rotate_clockwise_over_zero(1, std::chrono::duration_cast<std::chrono::milliseconds>(now - clock.now()), 1));
+      std::this_thread::sleep_for(std::chrono::milliseconds(16));
+      al_context.update();
+    }
+
+    source.destroy();
+    alure::Context::MakeCurrent(nullptr);
+    al_context.destroy();
+    al_device.close();
   }
+  context->Destroy();
+  context->Cleanup();
 
-  alure::Context::MakeCurrent(nullptr);
-  al_context.destroy();
-  al_device.close();
-
-  iplDestroyBinauralEffect(&effect);
-  iplDestroyBinauralRenderer(&renderer);
-  iplDestroyContext(&context);
-  iplCleanup();
-
-  save_output_audio("outputaudio.raw", outputaudio);
   return 0;
 }

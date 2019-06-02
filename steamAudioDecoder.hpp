@@ -3,24 +3,35 @@
 #include <alure2.h>
 #include <phonon.h>
 
+#include "BinauralRenderer.hpp"
+#include "BinauralEffect.hpp"
+#include "Structs.hpp"
+
 class SteamAudioDecoder final : public alure::Decoder
 {
-  int(*VoiceSE_GetSoundDataCallback)(sfxcache_s *pCache, char *pCopyBuf, int maxOutDataSize, int samplePos, int sampleCount);
+private:
+  std::shared_ptr<AudioBuffer> m_audioData{ nullptr };
+  IPLVector3 m_direction { 0.0f, 1.0f, 0.0f };
+  size_t m_framesize = 0;
+  size_t m_samplesplayed = 0;
+  size_t m_setframesplayed = 0;
+  size_t m_channelconfig = 1;
+  IPLAudioFormat stereo;
+  IPLAudioFormat mono;
 
-  alure::SharedPtr<std::vector<float>> audioData;
-  std::atomic<IPLVector3> position;
+  BinauralEffect m_effect;
+
+  IPLAudioFormat get_channel_format(alure::ChannelConfig config);
 
 public:
-  SteamAudioDecoder(alure::SharedPtr<std::vector<float>> decodedResampledAudio);
+  SteamAudioDecoder(std::shared_ptr<BinauralRenderer> renderer, const size_t& frameSize, std::shared_ptr<AudioBuffer> decodedResampledAudio);
   ~SteamAudioDecoder() override;
-
-  void destroy();
 
   ALuint read(ALvoid *ptr, ALuint count) noexcept override;
 
-  bool setPosition(const IPLVector3& pos)
+  void setDirection(const IPLVector3& direction)
   {
-    position = pos;
+    m_direction = direction;
   }
 
   ALuint getFrequency() const noexcept override
@@ -40,10 +51,13 @@ public:
 
   std::pair<uint64_t, uint64_t> getLoopPoints() const noexcept override
   {
-    std::pair<uint64_t, uint64_t>(0, UINT64_MAX);
+    return std::pair<uint64_t, uint64_t>(0, UINT64_MAX);
   };
 
-  uint64_t getLength() const noexcept override;
+  uint64_t getLength() const noexcept override
+  {
+    return UINT64_MAX;
+  };
 
   bool seek(uint64_t pos) noexcept override
   {
