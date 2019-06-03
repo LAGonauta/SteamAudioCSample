@@ -4,21 +4,23 @@
 
 Context::Context(const IPLLogFunction& logCallback, const  IPLAllocateFunction& allocateCallback, const IPLFreeFunction& freeCallback)
 {
-  auto error = iplCreateContext(logCallback, allocateCallback, freeCallback, &m_context);
+  IPLhandle context{ nullptr };
+  auto error = iplCreateContext(logCallback, allocateCallback, freeCallback, &context);
   if (error)
   {
     throw std::exception("Error creating binaural renderer: " + error);
   }
+  m_context = std::make_shared<IPLhandle>(context);
 }
 
 const IPLhandle Context::GetHandle()
 {
-  return m_context;
+  return *m_context;
 }
 
 void Context::Destroy()
 {
-  iplDestroyContext(&m_context);
+  iplDestroyContext(&(*m_context));
 }
 
 void Context::Cleanup()

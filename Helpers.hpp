@@ -4,7 +4,10 @@
 #include <alure2.h>
 
 #include "common.h"
+#include "Structs.hpp"
 #include "Externals/soxr-code/src/soxr.h"
+
+std::shared_ptr<AudioBuffer> get_audio(std::string filename, alure::Context al_context, size_t finalSampleRate);
 
 IPLVector3 rotate_clockwise_over_zero(double radius, std::chrono::milliseconds run_duration, double angularVelocity);
 

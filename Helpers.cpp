@@ -2,7 +2,63 @@
 
 #include "common.h"
 #include "Helpers.hpp"
+#include "Structs.hpp"
 #include "Externals/soxr-code/src/soxr.h"
+
+
+std::shared_ptr<AudioBuffer> get_audio(std::string filename, alure::Context al_context, size_t finalSampleRate)
+{
+  std::vector<float> resampledAudio;
+
+  auto dec = al_context.createDecoder(filename);
+  if (dec->getFrequency() == finalSampleRate && dec->getSampleType() == alure::SampleType::Float32)
+  {
+    std::vector<float> audioData(dec->getLength() * get_channel_quantity(dec->getChannelConfig()));
+    dec->read(audioData.data(), dec->getLength());
+    return std::make_shared<AudioBuffer>(audioData, alure::SampleType::Float32, dec->getChannelConfig());
+  }
+
+  std::vector<ALbyte> audioData(alure::FramesToBytes(dec->getLength(), dec->getChannelConfig(), dec->getSampleType()));
+  dec->read(audioData.data(), dec->getLength());
+
+  auto inputSampleType = dec->getSampleType();
+  auto inputLength = dec->getLength();
+  auto inputSize = audioData.size();
+  auto inputFrequency = dec->getFrequency();
+  auto inputChannelConfig = dec->getChannelConfig();
+
+  resampledAudio.resize(inputSize / get_sample_size(inputSampleType) * finalSampleRate / inputFrequency + 1);
+
+  auto runtimeSpec = soxr_runtime_spec(0);
+  auto audioSpec = soxr_io_spec(get_sox_type(inputSampleType), SOXR_FLOAT32_I);
+  auto qualityResampleQuality = soxr_quality_spec(SOXR_VHQ, 0);
+  auto resampler = soxr_create(inputFrequency, finalSampleRate, get_channel_quantity(inputChannelConfig), nullptr, &audioSpec, &qualityResampleQuality, &runtimeSpec);
+
+  size_t idone = 0;
+  size_t odone = 0;
+  size_t block = 250000;
+  size_t j = 0;
+  for (size_t i = 0; alure::FramesToBytes(i, inputChannelConfig, inputSampleType) < audioData.size();)
+  {
+    auto num = alure::FramesToBytes(i, inputChannelConfig, inputSampleType);
+    size_t toProcess = block;
+    if (alure::FramesToBytes(toProcess + i, inputChannelConfig, inputSampleType) > audioData.size())
+    {
+      toProcess = alure::BytesToFrames(audioData.size(), inputChannelConfig, inputSampleType) - i;
+    }
+    auto numBytes = alure::FramesToBytes(i, inputChannelConfig, inputSampleType);
+    auto soxError = soxr_process(resampler, audioData.data() + alure::FramesToBytes(i, inputChannelConfig, inputSampleType),
+      toProcess, &idone,
+      resampledAudio.data() + j, resampledAudio.size() - j, &odone);
+
+    i += idone;
+    j += odone * get_channel_quantity(inputChannelConfig);
+  }
+  resampledAudio.resize(j);
+
+  soxr_delete(resampler);
+  return std::make_shared<AudioBuffer>(resampledAudio, alure::SampleType::Float32, inputChannelConfig);
+}
 
 IPLVector3 rotate_clockwise_over_zero(double radius, std::chrono::milliseconds run_duration, double angularVelocity)
 {

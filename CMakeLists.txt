@@ -6,7 +6,7 @@ set(OPENAL_INCLUDE_DIR "C:\\Program Files (x86)\\OpenAL 1.1 SDK\\include")
 # Library
 project(SteamAudioHelper)
 
-add_library(SteamAudioHelper SHARED Context.cpp Environment.cpp BinauralEffect.cpp BinauralRenderer.cpp)
+add_library(SteamAudioHelper SHARED Context.cpp Environment.cpp EnvironmentalRenderer.cpp DirectEffect.cpp BinauralEffect.cpp BinauralRenderer.cpp)
 set_property(TARGET SteamAudioHelper PROPERTY CXX_STANDARD 17)
 add_compile_definitions(BUILDING_DLL)
 
@@ -38,7 +38,7 @@ endif()
 # Example
 project(steamaudio_example)
 
-add_executable(steamaudio_example main.cpp SteamAudioDecoder.cpp Helpers.cpp)
+add_executable(steamaudio_example main.cpp SteamAudioDecoder.cpp Helpers.cpp AudioSource.cpp)
 set_property(TARGET steamaudio_example PROPERTY CXX_STANDARD 17)
 
 add_dependencies(steamaudio_example SteamAudioHelper)

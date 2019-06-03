@@ -6,7 +6,7 @@
 class BinauralEffect final
 {
 private:
-  IPLhandle m_effect{ nullptr };
+  std::shared_ptr<IPLhandle> m_effect{ nullptr };
   std::shared_ptr<BinauralRenderer> m_binaural_renderer{ nullptr };
 
 public:

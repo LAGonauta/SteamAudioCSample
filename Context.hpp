@@ -7,7 +7,8 @@ class Context final
 private:
   friend class BinauralRenderer;
   friend class Environment;
-  IPLhandle m_context{ nullptr };
+  friend class EnvironmentalRenderer;
+  std::shared_ptr<IPLhandle> m_context{ nullptr };
 
   const IPLhandle GetHandle();
 
