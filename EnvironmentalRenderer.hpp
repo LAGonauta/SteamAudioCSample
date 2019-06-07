@@ -8,7 +8,8 @@ class EnvironmentalRenderer final
 {
 private:
   friend class DirectEffect;
-  std::shared_ptr<IPLhandle> m_environmental_renderer{ nullptr };
+  friend class ConvolutionEffect;
+  IPLhandle m_environmental_renderer{ nullptr };
   int32_t m_framesize = 0;
 
   std::shared_ptr<Context> m_context{ nullptr };
@@ -17,6 +18,12 @@ private:
   IPLhandle GetHandle();
 
 public:
+  DLL_PUBLIC EnvironmentalRenderer() = delete;
+  DLL_PUBLIC EnvironmentalRenderer(const EnvironmentalRenderer& other) = delete;
+  DLL_PUBLIC EnvironmentalRenderer& operator=(const EnvironmentalRenderer& other) = delete;
+  DLL_PUBLIC EnvironmentalRenderer(EnvironmentalRenderer&& other) noexcept;
+  DLL_PUBLIC EnvironmentalRenderer& operator=(EnvironmentalRenderer&& other) noexcept;
+
   DLL_PUBLIC EnvironmentalRenderer(std::shared_ptr<Context> context, std::shared_ptr<Environment> env, const IPLRenderingSettings& renderingSettings, const  IPLAudioFormat& outputFormat);
   DLL_PUBLIC ~EnvironmentalRenderer();
   DLL_PUBLIC int32_t GetFramesize();

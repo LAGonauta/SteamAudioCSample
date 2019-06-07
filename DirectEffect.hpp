@@ -6,11 +6,18 @@
 class DirectEffect final
 {
 private:
-  std::shared_ptr<IPLhandle> m_effect{ nullptr };
+  IPLhandle m_effect{ nullptr };
+  IPLAudioFormat m_inputFormat{};
+  IPLAudioFormat m_outputFormat{};
   std::shared_ptr<EnvironmentalRenderer> m_environmental_renderer{ nullptr };
 
 public:
   DLL_PUBLIC DirectEffect() = default;
+  DLL_PUBLIC DirectEffect(const DirectEffect& other) = delete;
+  DLL_PUBLIC DirectEffect& DirectEffect::operator=(const DirectEffect& other) = delete;
+  DLL_PUBLIC DirectEffect(DirectEffect&& other) noexcept;
+  DLL_PUBLIC DirectEffect& operator=(DirectEffect&& other) noexcept;
+
   DLL_PUBLIC DirectEffect(std::shared_ptr<EnvironmentalRenderer> environmentalRenderer, const IPLAudioFormat& inputFormat, const IPLAudioFormat& outputFormat);
   DLL_PUBLIC ~DirectEffect();
 

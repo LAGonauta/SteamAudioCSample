@@ -18,25 +18,44 @@ IPLAudioFormat SteamAudioDecoder::get_channel_format(alure::ChannelConfig config
   return inputFormat;
 }
 
-SteamAudioDecoder::SteamAudioDecoder(std::shared_ptr<BinauralRenderer> renderer, std::shared_ptr<EnvironmentalRenderer> envRenderer, const size_t& frameSize, std::shared_ptr<AudioBuffer> decodedResampledAudio, alure::SampleType forcedType)
-  : m_sample_type(forcedType), m_audioData(decodedResampledAudio), m_framesize(frameSize)
+SteamAudioDecoder::SteamAudioDecoder(std::shared_ptr<BinauralRenderer> renderer,
+  std::shared_ptr<EnvironmentalRenderer> envRenderer,
+  std::shared_ptr<Environment> env,
+  const size_t& frameSize,
+  std::shared_ptr<AudioBuffer> decodedResampledAudio,
+  alure::SampleType forcedType)
+  : m_sample_type(forcedType), m_audioData(decodedResampledAudio), m_framesize(frameSize), m_env(env)
 {
   m_channelconfig = get_channel_quantity(m_audioData->channels);
 
-  mono.channelLayoutType = IPL_CHANNELLAYOUTTYPE_SPEAKERS;
-  mono.channelLayout = IPL_CHANNELLAYOUT_MONO;
-  mono.channelOrder = IPL_CHANNELORDER_INTERLEAVED;
+  mono.channelLayoutType = IPLChannelLayoutType::IPL_CHANNELLAYOUTTYPE_SPEAKERS;
+  mono.numSpeakers = 1;
+  mono.channelLayout = IPLChannelLayout::IPL_CHANNELLAYOUT_MONO;
+  mono.channelOrder = IPLChannelOrder::IPL_CHANNELORDER_INTERLEAVED;
 
-  stereo.channelLayoutType = IPL_CHANNELLAYOUTTYPE_SPEAKERS;
-  stereo.channelLayout = IPL_CHANNELLAYOUT_STEREO;
-  stereo.channelOrder = IPL_CHANNELORDER_INTERLEAVED;
+  stereo.channelLayoutType = IPLChannelLayoutType::IPL_CHANNELLAYOUTTYPE_SPEAKERS;
+  stereo.numSpeakers = 2;
+  stereo.channelLayout = IPLChannelLayout::IPL_CHANNELLAYOUT_STEREO;
+  stereo.channelOrder = IPLChannelOrder::IPL_CHANNELORDER_INTERLEAVED;
 
-  m_effect = BinauralEffect(renderer, get_channel_format(decodedResampledAudio->channels), stereo);
-  m_direct_effect = DirectEffect(envRenderer, get_channel_format(decodedResampledAudio->channels), stereo);
+  m_direct_effect = DirectEffect(envRenderer, get_channel_format(decodedResampledAudio->channels), mono);
+  m_binaural_effect = BinauralEffect(renderer, mono, stereo);
+  m_conv_effect = ConvolutionEffect(envRenderer, IPLBakedDataIdentifier {10, IPLBakedDataType::IPL_BAKEDDATATYPE_REVERB}, IPLSimulationType::IPL_SIMTYPE_REALTIME, get_channel_format(decodedResampledAudio->channels), stereo);
+
+  directOut.resize(m_framesize);
+  directOutBuffer = IPLAudioBuffer{ mono, static_cast<IPLint32>(m_framesize), directOut.data() };
+
+  binauralOut.resize(m_framesize * stereo.numSpeakers);
+  binauralOutBuffer = IPLAudioBuffer{ stereo, static_cast<IPLint32>(m_framesize), binauralOut.data() };
+
+  wetOut.resize(m_framesize * stereo.numSpeakers);
+  wetOutBuffer = IPLAudioBuffer{ stereo, static_cast<IPLint32>(m_framesize), wetOut.data() };
+
+  finalConversionBuffer.resize(m_framesize * get_channel_quantity(alure::ChannelConfig::Stereo));
 }
 
 //not done
-SteamAudioDecoder::~SteamAudioDecoder() {}
+//SteamAudioDecoder::~SteamAudioDecoder() {}
 
 ALuint SteamAudioDecoder::read(ALvoid *ptr, ALuint count) noexcept
 {
@@ -47,23 +66,17 @@ ALuint SteamAudioDecoder::read(ALvoid *ptr, ALuint count) noexcept
 
   IPLAudioBuffer inbuffer{ get_channel_format(m_audioData->channels), m_framesize, m_audioData->data.data() + m_samplesplayed };
 
-  std::vector<float> directOut(m_framesize * get_channel_quantity(m_audioData->channels));
-
-  IPLAudioBuffer directOutBuffer{ get_channel_format(m_audioData->channels), m_framesize, directOut.data() };
-
-  IPLAudioBuffer outbuffer{ stereo, m_framesize, static_cast<float*>(ptr) };
-  std::vector<float> outBuffer;
+  IPLAudioBuffer finalOutbuffer{ stereo, m_framesize, static_cast<float*>(ptr) };
   if (m_sample_type != alure::SampleType::Float32)
   {
-    outBuffer.resize(m_framesize * get_channel_quantity(m_audioData->channels));
-    outbuffer.interleavedBuffer = outBuffer.data();
+    finalOutbuffer.interleavedBuffer = finalConversionBuffer.data();
   }
 
   auto numframes = static_cast<int>(m_audioData->data.size() / m_framesize / m_channelconfig);
   if (m_setframesplayed < numframes)
   {
     std::cout << "                                            \r";
-    if (m_sound_path.direction.z < 0)
+    if (m_source.position.z < 0)
     {
       std::cout << "Front";
     }
@@ -72,7 +85,7 @@ ALuint SteamAudioDecoder::read(ALvoid *ptr, ALuint count) noexcept
       std::cout << "Back";
     }
 
-    if (m_sound_path.direction.x > 0)
+    if (m_source.position.x > 0)
     {
       std::cout << " Right";
     }
@@ -87,9 +100,20 @@ ALuint SteamAudioDecoder::read(ALvoid *ptr, ALuint count) noexcept
     opts.applyDirectivity = IPL_FALSE;
     opts.directOcclusionMode = IPL_DIRECTOCCLUSION_NONE;
 
-    m_direct_effect.Apply(inbuffer, m_sound_path, opts, directOutBuffer);
+    m_conv_effect.SetDryAudio(m_source, inbuffer);
 
-    m_effect.Apply(directOutBuffer, m_sound_path.direction, IPL_HRTFINTERPOLATION_BILINEAR, outbuffer);
+    std::vector<float> wetData(m_framesize * m_channelconfig);
+    IPLAudioBuffer wetOutbuffer{ stereo, m_framesize, wetData.data() };
+    m_conv_effect.GetWetAudio(m_listenerPosition, m_listenerAhead, m_listenerUp, wetOutbuffer);
+
+    auto soundPath = m_env->GetDirectSoundPath(m_listenerPosition, m_listenerAhead, m_listenerUp, m_source, m_radius, m_occlusionMode, m_occlusionMethod);
+
+    m_direct_effect.Apply(inbuffer, soundPath, opts, directOutBuffer);
+
+    m_binaural_effect.Apply(directOutBuffer, soundPath.direction, IPL_HRTFINTERPOLATION_BILINEAR, binauralOutBuffer);
+
+    std::array<IPLAudioBuffer, 2> buffers{wetOutBuffer, binauralOutBuffer};
+    iplMixAudioBuffers(2, buffers.data(), finalOutbuffer);
 
     m_samplesplayed += m_framesize * m_channelconfig;
     ++m_setframesplayed;
@@ -100,24 +124,24 @@ ALuint SteamAudioDecoder::read(ALvoid *ptr, ALuint count) noexcept
     {
       auto pointer = static_cast<int16_t*>(ptr);
 
-      for (int i = 0, m = outBuffer.size(); i < m; ++i)
+      for (size_t i = 0, m = finalConversionBuffer.size(); i < m; ++i)
       {
-        outBuffer[i] *= std::numeric_limits<short>::max();
+        finalConversionBuffer[i] *= std::numeric_limits<short>::max();
       }
 
-      for (int i = 0, m = outBuffer.size(); i < m; ++i)
+      for (size_t i = 0, m = finalConversionBuffer.size(); i < m; ++i)
       {
-        if (outBuffer[i] > std::numeric_limits<short>::max())
+        if (finalConversionBuffer[i] > std::numeric_limits<short>::max())
         {
           pointer[i] = std::numeric_limits<short>::max();
         }
-        else if (outBuffer[i] < std::numeric_limits<short>::min())
+        else if (finalConversionBuffer[i] < std::numeric_limits<short>::min())
         {
           pointer[i] = std::numeric_limits<short>::min();
         }
         else
         {
-          pointer[i] = static_cast<short>(outBuffer[i]);
+          pointer[i] = static_cast<short>(finalConversionBuffer[i]);
         }
       }
       break;

@@ -8,6 +8,7 @@ private:
   friend class BinauralRenderer;
   friend class Environment;
   friend class EnvironmentalRenderer;
+  friend class Scene;
   std::shared_ptr<IPLhandle> m_context{ nullptr };
 
   const IPLhandle GetHandle();

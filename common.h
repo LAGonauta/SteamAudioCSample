@@ -3,6 +3,7 @@
 #include <exception>
 #include <phonon.h>
 #include <memory>
+#include <mutex>
 
 #if defined _WIN32 || defined __CYGWIN__
   #ifdef BUILDING_DLL

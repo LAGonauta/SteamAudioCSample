@@ -6,11 +6,18 @@
 class BinauralEffect final
 {
 private:
-  std::shared_ptr<IPLhandle> m_effect{ nullptr };
+  IPLhandle m_effect{ nullptr };
+  IPLAudioFormat m_inputFormat{};
+  IPLAudioFormat m_outputFormat{};
   std::shared_ptr<BinauralRenderer> m_binaural_renderer{ nullptr };
 
 public:
   DLL_PUBLIC BinauralEffect() = default;
+  DLL_PUBLIC BinauralEffect(const BinauralEffect& other) = delete;
+  DLL_PUBLIC BinauralEffect& BinauralEffect::operator=(const BinauralEffect& other) = delete;
+  DLL_PUBLIC BinauralEffect(BinauralEffect&& other) noexcept;
+  DLL_PUBLIC BinauralEffect& operator=(BinauralEffect&& other) noexcept;
+
   DLL_PUBLIC BinauralEffect(std::shared_ptr<BinauralRenderer> binauralRenderer, const IPLAudioFormat& inputFormat, const IPLAudioFormat& outputFormat);
   DLL_PUBLIC ~BinauralEffect();
 

@@ -7,13 +7,22 @@
 #include "BinauralEffect.hpp"
 #include "EnvironmentalRenderer.hpp"
 #include "DirectEffect.hpp"
+#include "ConvolutionEffect.hpp"
 #include "Structs.hpp"
 
 class SteamAudioDecoder final : public alure::Decoder
 {
 private:
   std::shared_ptr<AudioBuffer> m_audioData{ nullptr };
-  IPLDirectSoundPath m_sound_path { };
+  std::shared_ptr<Environment> m_env{ nullptr };
+  IPLSource m_source { };
+  IPLVector3 m_listenerPosition{ };
+  IPLVector3 m_listenerAhead{ };
+  IPLVector3 m_listenerUp{ };
+  IPLfloat32 m_radius = 1;
+  IPLDirectOcclusionMode m_occlusionMode = IPL_DIRECTOCCLUSION_NONE;
+  IPLDirectOcclusionMethod m_occlusionMethod = IPL_DIRECTOCCLUSION_RAYCAST;
+
   size_t m_framesize = 0;
   size_t m_samplesplayed = 0;
   size_t m_setframesplayed = 0;
@@ -24,20 +33,73 @@ private:
 
   bool m_finished = false;
 
-  BinauralEffect m_effect;
+  BinauralEffect m_binaural_effect;
   DirectEffect m_direct_effect;
+  ConvolutionEffect m_conv_effect;
 
   IPLAudioFormat get_channel_format(alure::ChannelConfig config);
 
+  std::vector<float> directOut;
+  IPLAudioBuffer directOutBuffer;
+
+  std::vector<float> binauralOut;
+  IPLAudioBuffer binauralOutBuffer;
+
+  std::vector<float> wetOut;
+  IPLAudioBuffer wetOutBuffer;
+
+  std::vector<float> finalConversionBuffer;
+
 public:
-  SteamAudioDecoder(std::shared_ptr<BinauralRenderer> renderer, std::shared_ptr<EnvironmentalRenderer> envRenderer, const size_t& frameSize, std::shared_ptr<AudioBuffer> decodedResampledAudio, alure::SampleType forcedOutputType = alure::SampleType::Float32);
-  ~SteamAudioDecoder() override;
+  SteamAudioDecoder(std::shared_ptr<BinauralRenderer> renderer,
+    std::shared_ptr<EnvironmentalRenderer> envRenderer,
+    std::shared_ptr<Environment> env, const size_t& frameSize,
+    std::shared_ptr<AudioBuffer> decodedResampledAudio,
+    alure::SampleType forcedOutputType = alure::SampleType::Float32);
+  //~SteamAudioDecoder() override;
 
   ALuint read(ALvoid *ptr, ALuint count) noexcept override;
 
-  void setPosition(const IPLDirectSoundPath& pos)
+  void setPosition(const IPLSource& pos)
   {
-    m_sound_path = pos;
+    m_source = pos;
+  }
+
+  void setListener(const IPLVector3& listenerPosition, const IPLVector3& listenerAhead, const IPLVector3& listenerUp)
+  {
+    m_listenerAhead = listenerAhead;
+    m_listenerPosition = listenerPosition;
+    m_listenerUp = listenerUp;
+  }
+
+  void setRadius(IPLfloat32 radius)
+  {
+    m_radius = radius;
+  }
+
+  IPLfloat32 getRadius()
+  {
+    return m_radius;
+  }
+
+  void setOcclusionMode(IPLDirectOcclusionMode mode)
+  {
+    m_occlusionMode = mode;
+  }
+
+  IPLDirectOcclusionMode getOcclusionMode()
+  {
+    return m_occlusionMode;
+  }
+
+  void setOcclusionMethod(IPLDirectOcclusionMethod method)
+  {
+    m_occlusionMethod = method;
+  }
+
+  IPLDirectOcclusionMethod getOcclusionMethod()
+  {
+    return m_occlusionMethod;
   }
 
   ALuint getFrequency() const noexcept override
