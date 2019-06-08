@@ -26,38 +26,35 @@ ConvolutionEffect::~ConvolutionEffect()
 
 void ConvolutionEffect::Flush()
 {
-  iplFlushConvolutionEffect(m_effect);
+  if (m_effect)
+  {
+    iplFlushConvolutionEffect(m_effect);
+  }
 }
 
 void ConvolutionEffect::SetDryAudio(const IPLSource& source, const IPLAudioBuffer& dryAudio)
 {
-  iplSetDryAudioForConvolutionEffect(m_effect, source, dryAudio);
+  if (m_effect)
+  {
+    iplSetDryAudioForConvolutionEffect(m_effect, source, dryAudio);
+  }
 }
 
 void ConvolutionEffect::GetWetAudio(const IPLVector3& listenerPosition, const IPLVector3& listenerAhead, const IPLVector3& listenerUp, IPLAudioBuffer& wetAudio)
 {
-  iplGetWetAudioForConvolutionEffect(m_effect, listenerPosition, listenerAhead, listenerUp, wetAudio);
+  if (m_effect)
+  {
+    iplGetWetAudioForConvolutionEffect(m_effect, listenerPosition, listenerAhead, listenerUp, wetAudio);
+  }
 }
 
 void ConvolutionEffect::SetIdentifier(const IPLBakedDataIdentifier& identifier)
 {
-  iplSetConvolutionEffectIdentifier(m_effect, identifier);
-}
-
-ConvolutionEffect::ConvolutionEffect() = default;
-ConvolutionEffect::ConvolutionEffect(const ConvolutionEffect& other)
-  : ConvolutionEffect(other.m_environmental_renderer, other.m_baked_identifier, other.m_simulation_type, other.m_inputFormat, other.m_outputFormat)
-{ }
-
-ConvolutionEffect& ConvolutionEffect::ConvolutionEffect::operator=(const ConvolutionEffect& other)
-{
-  if (this != &other)
+  if (m_effect)
   {
-    return *this = ConvolutionEffect(other.m_environmental_renderer, other.m_baked_identifier, other.m_simulation_type, other.m_inputFormat, other.m_outputFormat);
+    iplSetConvolutionEffectIdentifier(m_effect, identifier);
   }
-
-  return *this;
-};
+}
 
 ConvolutionEffect::ConvolutionEffect(ConvolutionEffect&& other) noexcept
 {

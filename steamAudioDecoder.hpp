@@ -15,10 +15,10 @@ class SteamAudioDecoder final : public alure::Decoder
 private:
   std::shared_ptr<AudioBuffer> m_audioData{ nullptr };
   std::shared_ptr<Environment> m_env{ nullptr };
-  IPLSource m_source { };
-  IPLVector3 m_listenerPosition{ };
-  IPLVector3 m_listenerAhead{ };
-  IPLVector3 m_listenerUp{ };
+  IPLSource m_source{0};
+  IPLVector3 m_listenerPosition{0};
+  IPLVector3 m_listenerAhead{0};
+  IPLVector3 m_listenerUp{0};
   IPLfloat32 m_radius = 1;
   IPLDirectOcclusionMode m_occlusionMode = IPL_DIRECTOCCLUSION_NONE;
   IPLDirectOcclusionMethod m_occlusionMethod = IPL_DIRECTOCCLUSION_RAYCAST;
@@ -27,28 +27,41 @@ private:
   size_t m_samplesplayed = 0;
   size_t m_setframesplayed = 0;
   size_t m_channelconfig = 1;
-  IPLAudioFormat stereo;
-  IPLAudioFormat mono;
+  IPLAudioFormat stereo{};
+  IPLAudioFormat stereoDeint{};
+  IPLAudioFormat mono{};
+  IPLAudioFormat ambisonic{};
   alure::SampleType m_sample_type;
 
   bool m_finished = false;
 
-  BinauralEffect m_binaural_effect;
-  DirectEffect m_direct_effect;
-  ConvolutionEffect m_conv_effect;
+  std::unique_ptr<BinauralEffect> m_binaural_effect;
+  std::unique_ptr<DirectEffect> m_direct_effect;
+  std::unique_ptr<ConvolutionEffect> m_conv_effect;
 
   IPLAudioFormat get_channel_format(alure::ChannelConfig config);
+
+  IPLAudioBuffer inBuffer;
 
   std::vector<float> directOut;
   IPLAudioBuffer directOutBuffer;
 
-  std::vector<float> binauralOut;
+  std::vector<float> binauralOutData;
+  std::vector<float*> binauralOutChannels;
   IPLAudioBuffer binauralOutBuffer;
 
-  std::vector<float> wetOut;
+  std::vector<float> wetOutData;
+  std::vector<float*> wetOutChannels;
   IPLAudioBuffer wetOutBuffer;
 
-  std::vector<float> finalConversionBuffer;
+  std::vector<float> wetBinauralOutData;
+  std::vector<float*> wetBinauralOutChannels;
+  IPLAudioBuffer wetBinauralOutBuffer;
+
+  std::vector<float> preOutBufferData;
+  std::vector<float*> preOutBufferDataChannels;
+  IPLAudioBuffer preOutBuffer;
+  IPLAudioBuffer finalOutBuffer;
 
 public:
   SteamAudioDecoder(std::shared_ptr<BinauralRenderer> renderer,

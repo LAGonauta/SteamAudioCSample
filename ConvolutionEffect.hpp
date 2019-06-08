@@ -14,9 +14,8 @@ private:
   std::shared_ptr<EnvironmentalRenderer> m_environmental_renderer{ nullptr };
 
 public:
-  DLL_PUBLIC ConvolutionEffect();
-  DLL_PUBLIC ConvolutionEffect(const ConvolutionEffect& other);
-  DLL_PUBLIC ConvolutionEffect& ConvolutionEffect::operator=(const ConvolutionEffect& other);
+  DLL_PUBLIC ConvolutionEffect(const ConvolutionEffect& other) = delete;
+  DLL_PUBLIC ConvolutionEffect& ConvolutionEffect::operator=(const ConvolutionEffect& other) = delete;
   DLL_PUBLIC ConvolutionEffect(ConvolutionEffect&& other) noexcept;
   DLL_PUBLIC ConvolutionEffect& operator=(ConvolutionEffect&& other) noexcept;
 

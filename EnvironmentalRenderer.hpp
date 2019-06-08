@@ -18,7 +18,6 @@ private:
   IPLhandle GetHandle();
 
 public:
-  DLL_PUBLIC EnvironmentalRenderer() = delete;
   DLL_PUBLIC EnvironmentalRenderer(const EnvironmentalRenderer& other) = delete;
   DLL_PUBLIC EnvironmentalRenderer& operator=(const EnvironmentalRenderer& other) = delete;
   DLL_PUBLIC EnvironmentalRenderer(EnvironmentalRenderer&& other) noexcept;

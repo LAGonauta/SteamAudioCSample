@@ -12,7 +12,6 @@ private:
   std::shared_ptr<BinauralRenderer> m_binaural_renderer{ nullptr };
 
 public:
-  DLL_PUBLIC BinauralEffect() = default;
   DLL_PUBLIC BinauralEffect(const BinauralEffect& other) = delete;
   DLL_PUBLIC BinauralEffect& BinauralEffect::operator=(const BinauralEffect& other) = delete;
   DLL_PUBLIC BinauralEffect(BinauralEffect&& other) noexcept;

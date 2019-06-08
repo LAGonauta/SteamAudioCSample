@@ -12,7 +12,6 @@ private:
   std::shared_ptr<EnvironmentalRenderer> m_environmental_renderer{ nullptr };
 
 public:
-  DLL_PUBLIC DirectEffect() = default;
   DLL_PUBLIC DirectEffect(const DirectEffect& other) = delete;
   DLL_PUBLIC DirectEffect& DirectEffect::operator=(const DirectEffect& other) = delete;
   DLL_PUBLIC DirectEffect(DirectEffect&& other) noexcept;

@@ -22,17 +22,26 @@ BinauralEffect::~BinauralEffect()
 
 void BinauralEffect::Flush()
 {
-  iplFlushBinauralEffect(m_effect);
+  if (m_effect)
+  {
+    iplFlushBinauralEffect(m_effect);
+  }
 }
 
 void BinauralEffect::Apply(const IPLAudioBuffer& inputAudio, const IPLVector3& direction, IPLHrtfInterpolation interpolation, IPLAudioBuffer& outputAudio)
 {
-  iplApplyBinauralEffect(m_effect, m_binaural_renderer->GetHandle(), inputAudio, direction, interpolation, outputAudio);
+  if (m_effect)
+  {
+    iplApplyBinauralEffect(m_effect, m_binaural_renderer->GetHandle(), inputAudio, direction, interpolation, outputAudio);
+  }
 }
 
 void BinauralEffect::Apply(const IPLAudioBuffer& inputAudio, const IPLVector3& direction, IPLHrtfInterpolation interpolation, IPLAudioBuffer& outputAudio, IPLfloat32& leftDelay, IPLfloat32& rightDelay)
 {
-  iplApplyBinauralEffectWithParameters(m_effect, m_binaural_renderer->GetHandle(), inputAudio, direction, interpolation, outputAudio, &leftDelay, &rightDelay);
+  if (m_effect)
+  {
+    iplApplyBinauralEffectWithParameters(m_effect, m_binaural_renderer->GetHandle(), inputAudio, direction, interpolation, outputAudio, &leftDelay, &rightDelay);
+  }
 }
 
 BinauralEffect::BinauralEffect(BinauralEffect&& other) noexcept
