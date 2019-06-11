@@ -53,6 +53,7 @@ SteamAudioDecoder::SteamAudioDecoder(std::shared_ptr<BinauralRenderer> renderer,
   m_direct_effect = std::make_unique<DirectEffect>(envRenderer, get_channel_format(decodedResampledAudio->channels), mono);
   m_binaural_effect = std::make_unique<BinauralEffect>(renderer, mono, stereoDeint);
   m_conv_effect = std::make_unique<ConvolutionEffect>(envRenderer, IPLBakedDataIdentifier {10, IPLBakedDataType::IPL_BAKEDDATATYPE_REVERB}, IPLSimulationType::IPL_SIMTYPE_REALTIME, get_channel_format(decodedResampledAudio->channels), ambisonic);
+  m_amb_binaural_effect = std::make_unique<AmbisonicsBinauralEffect>(renderer, ambisonic, stereoDeint);
 
   inBuffer = IPLAudioBuffer{ get_channel_format(m_audioData->channels), static_cast<int32_t>(m_framesize), m_audioData->data.data() };
 
@@ -92,6 +93,12 @@ SteamAudioDecoder::SteamAudioDecoder(std::shared_ptr<BinauralRenderer> renderer,
   preOutBuffer = IPLAudioBuffer{ stereoDeint, static_cast<int32_t>(m_framesize), nullptr, preOutBufferDataChannels.data() };
 
   finalOutBuffer = IPLAudioBuffer{ stereo, static_cast<int32_t>(m_framesize) , nullptr };
+
+  if (m_sample_type != alure::SampleType::Float32)
+  {
+    conversionData.resize(m_framesize * get_channel_quantity(alure::ChannelConfig::Stereo));
+    conversionBuffer = IPLAudioBuffer{ stereo, static_cast<int32_t>(m_framesize), conversionData.data() };
+  }
 }
 
 //not done
@@ -137,6 +144,7 @@ ALuint SteamAudioDecoder::read(ALvoid *ptr, ALuint count) noexcept
 
     m_conv_effect->SetDryAudio(m_source, inBuffer);
     m_conv_effect->GetWetAudio(m_listenerPosition, m_listenerAhead, m_listenerUp, wetOutBuffer);
+    m_amb_binaural_effect->Apply(wetOutBuffer, wetBinauralOutBuffer);
 
     auto soundPath = m_env->GetDirectSoundPath(m_listenerPosition, m_listenerAhead, m_listenerUp, m_source, m_radius, m_occlusionMode, m_occlusionMethod);
     m_direct_effect->Apply(inBuffer, soundPath, opts, directOutBuffer);
@@ -157,31 +165,28 @@ ALuint SteamAudioDecoder::read(ALvoid *ptr, ALuint count) noexcept
     }
     case alure::SampleType::Int16:
     {
-      std::array<float, 1024 * 4> convArray{ 0 };
-      IPLAudioBuffer conversion{ stereo, m_framesize, convArray.data() };
-
-      iplInterleaveAudioBuffer(preOutBuffer, conversion);
+      iplInterleaveAudioBuffer(preOutBuffer, conversionBuffer);
 
       auto pointer = static_cast<int16_t*>(ptr);
 
       for (size_t i = 0, m = m_framesize * m_channelconfig; i < m; ++i)
       {
-        convArray[i] *= std::numeric_limits<short>::max();
+        conversionData[i] *= std::numeric_limits<short>::max();
       }
 
       for (size_t i = 0, m = m_framesize * m_channelconfig; i < m; ++i)
       {
-        if (convArray[i] > std::numeric_limits<short>::max())
+        if (conversionData[i] > std::numeric_limits<short>::max())
         {
           pointer[i] = std::numeric_limits<short>::max();
         }
-        else if (convArray[i] < std::numeric_limits<short>::min())
+        else if (conversionData[i] < std::numeric_limits<short>::min())
         {
           pointer[i] = std::numeric_limits<short>::min();
         }
         else
         {
-          pointer[i] = static_cast<short>(convArray[i]);
+          pointer[i] = static_cast<short>(conversionData[i]);
         }
       }
 

@@ -5,6 +5,7 @@
 
 #include "BinauralRenderer.hpp"
 #include "BinauralEffect.hpp"
+#include "AmbisonicsBinauralEffect.hpp"
 #include "EnvironmentalRenderer.hpp"
 #include "DirectEffect.hpp"
 #include "ConvolutionEffect.hpp"
@@ -36,6 +37,7 @@ private:
   bool m_finished = false;
 
   std::unique_ptr<BinauralEffect> m_binaural_effect;
+  std::unique_ptr<AmbisonicsBinauralEffect> m_amb_binaural_effect;
   std::unique_ptr<DirectEffect> m_direct_effect;
   std::unique_ptr<ConvolutionEffect> m_conv_effect;
 
@@ -62,6 +64,9 @@ private:
   std::vector<float*> preOutBufferDataChannels;
   IPLAudioBuffer preOutBuffer;
   IPLAudioBuffer finalOutBuffer;
+
+  std::vector<float> conversionData;
+  IPLAudioBuffer conversionBuffer;
 
 public:
   SteamAudioDecoder(std::shared_ptr<BinauralRenderer> renderer,

@@ -6,7 +6,7 @@ set(OPENAL_INCLUDE_DIR "C:\\Program Files (x86)\\OpenAL 1.1 SDK\\include")
 # Library
 project(SteamAudioHelper)
 
-add_library(SteamAudioHelper SHARED Context.cpp Environment.cpp EnvironmentalRenderer.cpp Scene.cpp DirectEffect.cpp BinauralEffect.cpp ConvolutionEffect.cpp BinauralRenderer.cpp)
+add_library(SteamAudioHelper SHARED Context.cpp Environment.cpp EnvironmentalRenderer.cpp Scene.cpp DirectEffect.cpp BinauralEffect.cpp ConvolutionEffect.cpp AmbisonicsBinauralEffect.cpp BinauralRenderer.cpp)
 set_property(TARGET SteamAudioHelper PROPERTY CXX_STANDARD 17)
 add_compile_definitions(BUILDING_DLL)
 
@@ -45,6 +45,7 @@ add_dependencies(steamaudio_example SteamAudioHelper)
 target_link_libraries(steamaudio_example SteamAudioHelper)
 
 if(MSVC)
+  set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT steamaudio_example)
   target_compile_options(steamaudio_example PRIVATE /W4)
 else()
   target_compile_options(steamaudio_example PRIVATE -Wall -Wextra -pedantic)

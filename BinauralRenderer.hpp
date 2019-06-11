@@ -7,6 +7,7 @@ class BinauralRenderer final
 {
 private:
   friend class BinauralEffect;
+  friend class AmbisonicsBinauralEffect;
   IPLhandle m_binaural_renderer{ nullptr };
   int32_t m_framesize = 0;
 
