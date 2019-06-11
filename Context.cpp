@@ -13,7 +13,7 @@ Context::Context(const IPLLogFunction& logCallback, const  IPLAllocateFunction& 
   m_context = std::make_shared<IPLhandle>(context);
 }
 
-const IPLhandle Context::GetHandle()
+IPLhandle Context::GetHandle()
 {
   return *m_context;
 }

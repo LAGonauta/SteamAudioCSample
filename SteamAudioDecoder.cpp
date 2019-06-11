@@ -44,7 +44,7 @@ SteamAudioDecoder::SteamAudioDecoder(std::shared_ptr<BinauralRenderer> renderer,
   stereoDeint.channelOrder = IPLChannelOrder::IPL_CHANNELORDER_DEINTERLEAVED;
 
   ambisonic.channelLayoutType = IPLChannelLayoutType::IPL_CHANNELLAYOUTTYPE_AMBISONICS;
-  ambisonic.ambisonicsOrder = 0;
+  ambisonic.ambisonicsOrder = 1;
   auto ambisonicNumChannels = (ambisonic.ambisonicsOrder + 1) * (ambisonic.ambisonicsOrder + 1);
   ambisonic.ambisonicsOrdering = IPLAmbisonicsOrdering::IPL_AMBISONICSORDERING_ACN;
   ambisonic.ambisonicsNormalization = IPLAmbisonicsNormalization::IPL_AMBISONICSNORMALIZATION_N3D;
@@ -118,7 +118,7 @@ ALuint SteamAudioDecoder::read(ALvoid *ptr, ALuint count) noexcept
   if (m_setframesplayed < numframes)
   {
     std::cout << "                                            \r";
-    if (m_source.position.z < 0)
+    if (m_source.position.z - m_listenerPosition.z < 0)
     {
       std::cout << "Front";
     }
@@ -127,7 +127,7 @@ ALuint SteamAudioDecoder::read(ALvoid *ptr, ALuint count) noexcept
       std::cout << "Back";
     }
 
-    if (m_source.position.x > 0)
+    if (m_source.position.x - m_listenerPosition.x > 0)
     {
       std::cout << " Right";
     }
@@ -140,7 +140,7 @@ ALuint SteamAudioDecoder::read(ALvoid *ptr, ALuint count) noexcept
     opts.applyAirAbsorption = IPL_TRUE;
     opts.applyDistanceAttenuation = IPL_TRUE;
     opts.applyDirectivity = IPL_FALSE;
-    opts.directOcclusionMode = IPL_DIRECTOCCLUSION_NONE;
+    opts.directOcclusionMode = m_occlusionMode;
 
     m_conv_effect->SetDryAudio(m_source, inBuffer);
     m_conv_effect->GetWetAudio(m_listenerPosition, m_listenerAhead, m_listenerUp, wetOutBuffer);
@@ -150,8 +150,10 @@ ALuint SteamAudioDecoder::read(ALvoid *ptr, ALuint count) noexcept
     m_direct_effect->Apply(inBuffer, soundPath, opts, directOutBuffer);
     m_binaural_effect->Apply(directOutBuffer, soundPath.direction, IPL_HRTFINTERPOLATION_BILINEAR, binauralOutBuffer);
 
-    std::array<IPLAudioBuffer, 2> buffers{ wetBinauralOutBuffer, binauralOutBuffer };
-    iplMixAudioBuffers(2, buffers.data(), preOutBuffer);
+    {
+      std::array<IPLAudioBuffer, 2> buffers{ wetBinauralOutBuffer, binauralOutBuffer };
+      iplMixAudioBuffers(2, buffers.data(), preOutBuffer);
+    }
 
     m_samplesplayed += m_framesize * m_channelconfig;
     ++m_setframesplayed;

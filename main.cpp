@@ -30,8 +30,8 @@ int main()
   float pos_y = 1.0f;
   // Init OpenAL
   auto al_dev_manager = alure::DeviceManager::getInstance();
-  auto al_device = al_dev_manager.openPlayback("OpenAL Soft");
-  //auto al_device = al_dev_manager.openPlayback();
+  //auto al_device = al_dev_manager.openPlayback("OpenAL Soft");
+  auto al_device = al_dev_manager.openPlayback("");
   auto al_context = al_device.createContext();
   alure::Context::MakeCurrent(al_context);
 
@@ -44,20 +44,38 @@ int main()
     IPLHrtfParams hrtfParams{ IPLHrtfDatabaseType::IPL_HRTFDATABASETYPE_DEFAULT, nullptr, 0 };
 
     auto renderer = std::make_shared<BinauralRenderer>(context, settings, hrtfParams);
+    //IPLSimulationSettings simulationSettings{};
+    //simulationSettings.ambisonicsOrder = 1;
+    //simulationSettings.bakingBatchSize = 1;
+    //simulationSettings.irDuration = 1;
+    //simulationSettings.irradianceMinDistance = 0.1f;
+    //simulationSettings.maxConvolutionSources = 32;
+    //simulationSettings.numBounces = 8;
+    //simulationSettings.numDiffuseSamples = 1024;
+    //simulationSettings.numOcclusionSamples = 128;
+    //simulationSettings.numRays = 16384;
+    //simulationSettings.numThreads = std::thread::hardware_concurrency();
+    //simulationSettings.sceneType = IPLSceneType::IPL_SCENETYPE_PHONON;
+
     IPLSimulationSettings simulationSettings{};
     simulationSettings.ambisonicsOrder = 1;
     simulationSettings.bakingBatchSize = 1;
-    simulationSettings.irDuration = 0.5;
+    simulationSettings.irDuration = 1;
     simulationSettings.irradianceMinDistance = 0.1f;
-    simulationSettings.maxConvolutionSources = 1;
-    simulationSettings.numBounces = 1;
-    simulationSettings.numDiffuseSamples = 1;
-    simulationSettings.numOcclusionSamples = 1;
-    simulationSettings.numRays = 1;
-    simulationSettings.numThreads = 1;
+    simulationSettings.maxConvolutionSources = 32;
+    simulationSettings.numBounces = 2;
+    simulationSettings.numDiffuseSamples = 1024;
+    simulationSettings.numOcclusionSamples = 32;
+    simulationSettings.numRays = 4096;
+    simulationSettings.numThreads = std::thread::hardware_concurrency();
     simulationSettings.sceneType = IPLSceneType::IPL_SCENETYPE_PHONON;
 
     auto scene = std::make_shared<Scene>(context, IPLhandle{ NULL }, simulationSettings, 0, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    {
+      std::ifstream input("main_scene.phononscene", std::ios::binary);
+      std::vector<IPLbyte> buffer(std::istreambuf_iterator<char>(input), {});
+      auto error = scene->LoadScene(buffer, nullptr);
+    }
     auto environment = std::make_shared<Environment>(context, IPLhandle{ NULL }, simulationSettings, scene, IPLhandle{ NULL });
 
     IPLAudioFormat stereo;
@@ -71,6 +89,8 @@ int main()
     // Link decoder to source
     {
       auto audioSource = AudioSource(renderer, envRenderer, environment, al_context);
+      audioSource.SetOcclusionMethod(IPLDirectOcclusionMethod::IPL_DIRECTOCCLUSION_RAYCAST);
+      audioSource.SetOcclusionMode(IPLDirectOcclusionMode::IPL_DIRECTOCCLUSION_NOTRANSMISSION);
       std::cout << "Write a number and press enter to start." << std::endl;
       std::cin >> pos_y;
       audioSource.Play("erro.mp3");
@@ -80,20 +100,21 @@ int main()
       auto now = clock.now();
       float distance = 1;
       size_t m = 0;
+      IPLVector3 listernerPos = { 6.0f, 4.0f, 7.0f };
       while (audioSource.isPlaying())
       {
         IPLSource source{};
         source.position = rotate_clockwise_over_zero(distance, std::chrono::duration_cast<std::chrono::milliseconds>(now - clock.now()), 1);
-        source.position = IPLVector3{ source.position.x, source.position.y, source.position.z };
+        source.position = IPLVector3{ listernerPos.x + source.position.x, listernerPos.y + source.position.y, listernerPos.z + source.position.z };
         audioSource.SetPosition(source);
-        audioSource.SetListener(IPLVector3{ 0.0f, 0.0f, 0.0f }, IPLVector3{ 0.0f, 0.0f, -1.0f }, IPLVector3{ 0.0f, 1.0f, 0.0f });
+        audioSource.SetListener(listernerPos, IPLVector3{ 0.0f, 0.0f, -1.0f }, IPLVector3{ 0.0f, 1.0f, 0.0f });
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
-        if (m == 1000)
-        {
-          audioSource.Stop();
-        }
+        //if (m == 1000)
+        //{
+        //  audioSource.Stop();
+        //}
         al_context.update();
-        distance += 0.05f;
+        //distance += 0.05f;
         ++m;
       }
     }

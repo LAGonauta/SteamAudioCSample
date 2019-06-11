@@ -38,15 +38,29 @@ private:
     IPLMaterial{ 0.13f,0.20f,0.24f,0.05f,0.015f,0.002f,0.001f }
   };
 
-
   std::shared_ptr<Context> m_context{ nullptr };
-  std::shared_ptr<IPLhandle> m_scene{ nullptr };
+  IPLhandle m_scene{ nullptr };
 
-  std::mutex m_mutex;
+  IPLhandle m_computeDevice{ nullptr };
+  IPLSimulationSettings m_simulation_settings{};
+  IPLint32 m_numMaterials{};
+  IPLMaterial* m_materials{};
+  IPLClosestHitCallback m_closestCallback{ nullptr };
+  IPLAnyHitCallback m_anyHitCallback{ nullptr };
+  IPLBatchedClosestHitCallback m_batchedClosestCallback{ nullptr };
+  IPLBatchedAnyHitCallback m_batchedAnyHitCallback{ nullptr };
+  IPLvoid* m_userData{};
 
   IPLhandle GetHandle();
 
+  std::vector<std::vector<IPLbyte>> m_loadedScenes;
+
 public:
+  DLL_PUBLIC Scene(const Scene& other) = delete;
+  DLL_PUBLIC Scene& Scene::operator=(const Scene& other) = delete;
+  DLL_PUBLIC Scene(Scene&& other) noexcept;
+  DLL_PUBLIC Scene& operator=(Scene&& other) noexcept;
+
   DLL_PUBLIC Scene(std::shared_ptr<Context> context,
     IPLhandle computeDevice,
     IPLSimulationSettings simulationSettings,
@@ -58,4 +72,8 @@ public:
     IPLBatchedAnyHitCallback batchedAnyHitCallback,
     IPLvoid* userData);
   DLL_PUBLIC ~Scene();
+
+  DLL_PUBLIC IPLerror CreateStaticMesh(IPLint32 numVertices, IPLint32 numTriangles, IPLVector3* vertices, IPLTriangle* triangles, IPLint32* materialIndices, IPLhandle* staticMesh);
+
+  DLL_PUBLIC IPLerror LoadScene(const std::vector<IPLbyte>& data, IPLLoadSceneProgressCallback callback);
 };

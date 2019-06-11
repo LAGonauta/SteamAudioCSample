@@ -11,7 +11,7 @@ private:
   friend class Scene;
   std::shared_ptr<IPLhandle> m_context{ nullptr };
 
-  const IPLhandle GetHandle();
+  IPLhandle GetHandle();
 
 public:
   DLL_PUBLIC Context(const IPLLogFunction& logCallback = nullptr, const  IPLAllocateFunction& allocateCallback = nullptr, const IPLFreeFunction& freeCallback = nullptr);
