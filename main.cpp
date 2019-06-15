@@ -109,10 +109,10 @@ int main()
         audioSource.SetPosition(source);
         audioSource.SetListener(listernerPos, IPLVector3{ 0.0f, 0.0f, -1.0f }, IPLVector3{ 0.0f, 1.0f, 0.0f });
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
-        //if (m == 1000)
-        //{
-        //  audioSource.Stop();
-        //}
+        if (m == 1000)
+        {
+          audioSource.Stop();
+        }
         al_context.update();
         //distance += 0.05f;
         ++m;

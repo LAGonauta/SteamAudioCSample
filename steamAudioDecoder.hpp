@@ -25,8 +25,7 @@ private:
   IPLDirectOcclusionMethod m_occlusionMethod = IPL_DIRECTOCCLUSION_RAYCAST;
 
   size_t m_framesize = 0;
-  size_t m_samplesplayed = 0;
-  size_t m_setframesplayed = 0;
+  int64_t m_samplesplayed = 0;
   size_t m_channelconfig = 1;
   IPLAudioFormat stereo{};
   IPLAudioFormat stereoDeint{};
@@ -45,7 +44,10 @@ private:
 
   IPLAudioBuffer inBuffer;
 
-  std::vector<float> directOut;
+  std::vector<float> finalInBufferData;
+  IPLAudioBuffer finalInBuffer;
+
+  std::vector<float> directOutData;
   IPLAudioBuffer directOutBuffer;
 
   std::vector<float> binauralOutData;
@@ -140,15 +142,9 @@ public:
     return std::pair<uint64_t, uint64_t>(0, UINT64_MAX);
   };
 
-  uint64_t getLength() const noexcept override
-  {
-    return UINT64_MAX;
-  };
+  uint64_t getLength() const noexcept override;
 
-  bool seek(uint64_t pos) noexcept override
-  {
-    return false;
-  }
+  bool seek(uint64_t pos) noexcept override;
 
   bool isFinished() noexcept
   {
